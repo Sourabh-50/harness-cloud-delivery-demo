@@ -1,0 +1,14 @@
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Local Environment & Secrets
+.env
+*.pem
+*.key
+
+# Interview Master Guides & Notes (Local Only)
+INTERVIEW_MASTER_GUIDE.md
+*.tmp
