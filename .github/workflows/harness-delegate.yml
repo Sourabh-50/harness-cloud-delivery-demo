@@ -13,12 +13,23 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Launch Harness Delegate Container with CI Runner Engine
+      - name: Launch Harness CI Lite-Engine & Delegate Stack
         run: |
+          echo "Creating Harness Docker Network..."
+          docker network create harness-net || true
+
+          echo "Starting Harness CI Lite-Engine on Port 3000..."
+          docker run -d \
+            --name harness-ci-lite-engine \
+            --network harness-net \
+            -p 3000:3000 \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            us-docker.pkg.dev/gar-prod-setup/harness-public/harness/ci-lite-engine:latest || true
+
           echo "Starting Harness Docker Delegate..."
           docker run -d \
             --name docker-delegate \
-            --net=host \
+            --network harness-net \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e DELEGATE_NAME=docker-delegate \
             -e NEXT_GEN="true" \
@@ -27,12 +38,11 @@ jobs:
             -e DELEGATE_TOKEN=ZTc2YTRiOGJjMjJhNjQ5NmRkNzZlOTY2OTQzMDdiNjg= \
             -e DELEGATE_TAGS="docker-delegate,linux-amd64" \
             -e MANAGER_HOST_AND_PORT=https://app.harness.io \
-            -e RUNNER_URL="http://127.0.0.1:3000" \
-            -e CI_MOUNT_DOCKER_SOCKET="true" \
+            -e RUNNER_URL="http://harness-ci-lite-engine:3000" \
             us-docker.pkg.dev/gar-prod-setup/harness-public/harness/delegate:26.07.89707
 
       - name: Keep Delegate Active for Pipeline Execution
         run: |
-          echo "Harness Delegate ACTIVE on Cloud VM."
+          echo "Harness Delegate & CI Lite Engine ACTIVE on Cloud VM."
           echo "Listening for Harness pipeline executions..."
           sleep 1800
