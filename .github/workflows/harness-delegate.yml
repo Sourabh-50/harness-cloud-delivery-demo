@@ -1,0 +1,38 @@
+name: Harness Docker Delegate Host
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  run-harness-delegate:
+    name: Run Harness Delegate on Cloud VM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Launch Harness Delegate Container with CI Runner Engine
+        run: |
+          echo "Starting Harness Docker Delegate..."
+          docker run -d \
+            --name docker-delegate \
+            --net=host \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -e DELEGATE_NAME=docker-delegate \
+            -e NEXT_GEN="true" \
+            -e DELEGATE_TYPE="DOCKER" \
+            -e ACCOUNT_ID=1G9ZhWoTSCOo9I9qLmV9VA \
+            -e DELEGATE_TOKEN=ZTc2YTRiOGJjMjJhNjQ5NmRkNzZlOTY2OTQzMDdiNjg= \
+            -e DELEGATE_TAGS="docker-delegate,linux-amd64" \
+            -e MANAGER_HOST_AND_PORT=https://app.harness.io \
+            -e RUNNER_URL="http://127.0.0.1:3000" \
+            -e CI_MOUNT_DOCKER_SOCKET="true" \
+            us-docker.pkg.dev/gar-prod-setup/harness-public/harness/delegate:26.07.89707
+
+      - name: Keep Delegate Active for Pipeline Execution
+        run: |
+          echo "Harness Delegate ACTIVE on Cloud VM."
+          echo "Listening for Harness pipeline executions..."
+          sleep 1800
