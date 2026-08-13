@@ -26,7 +26,8 @@ jobs:
 
       - name: 1. Run Automated Unit Tests (pytest)
         run: |
-          pytest -v
+          export PYTHONPATH=.
+          python -m pytest -v
 
       - name: 2. Dependency Vulnerability Audit (pip-audit)
         run: |
