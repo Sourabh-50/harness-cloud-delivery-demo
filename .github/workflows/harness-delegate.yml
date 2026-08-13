@@ -1,4 +1,4 @@
-name: Harness Docker Delegate Host
+name: Harness Delegate Host
 
 on:
   workflow_dispatch:
@@ -7,27 +7,14 @@ on:
 
 jobs:
   run-harness-delegate:
-    name: Run Harness Docker Delegate on Cloud VM
+    name: Run Harness Delegate on Cloud VM
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Launch Harness Official CI Runner & Delegate Stack
+      - name: Launch Harness Docker Delegate Container
         run: |
-          echo "Launching Official Drone CI Runner Container on Port 3000..."
-          docker run -d \
-            --name harness-ci-runner \
-            --net=host \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -e DRONE_RPC_PROTO=https \
-            -e DRONE_RPC_HOST=app.harness.io \
-            -e DRONE_RPC_SECRET=ZTc2YTRiOGJjMjJhNjQ5NmRkNzZlOTY2OTQzMDdiNjg= \
-            -e DRONE_RUNNER_CAPACITY=2 \
-            -e DRONE_RUNNER_NAME=docker-delegate \
-            drone/drone-runner-docker:1 || true
-
-          echo "Launching Harness Docker Delegate..."
           docker run -d \
             --name docker-delegate \
             --net=host \
@@ -39,17 +26,10 @@ jobs:
             -e DELEGATE_TOKEN=ZTc2YTRiOGJjMjJhNjQ5NmRkNzZlOTY2OTQzMDdiNjg= \
             -e DELEGATE_TAGS="docker-delegate,linux-amd64" \
             -e MANAGER_HOST_AND_PORT=https://app.harness.io \
-            -e RUNNER_URL="http://127.0.0.1:3000" \
             us-docker.pkg.dev/gar-prod-setup/harness-public/harness/delegate:26.07.89707
-
-      - name: Verify Running Containers & Port 3000 Status
-        run: |
-          sleep 5
-          docker ps
-          sudo netstat -tulpn || sudo ss -tulpn || true
 
       - name: Keep Delegate Active for Pipeline Execution
         run: |
-          echo "Harness Delegate & Official CI Runner ACTIVE on Cloud VM!"
+          echo "Harness Delegate ACTIVE on Cloud VM!"
           echo "Listening for pipeline executions..."
           sleep 1800
