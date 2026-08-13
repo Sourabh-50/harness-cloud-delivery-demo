@@ -17,8 +17,8 @@ COPY app/ ./app/
 
 # Security Hardening: Create non-root system user and group
 RUN groupadd -g 10001 appgroup && \
-    useradd -u 10001 -g appgroup -s /bin/false appuser && \
-    chown -R appuser:appgroup /app
+    useradd -u 10001 -g appgroup -m -s /bin/false appuser && \
+    chown -R appuser:appgroup /app /home/appuser
 
 # Switch to non-root user
 USER appuser
