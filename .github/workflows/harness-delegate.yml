@@ -13,11 +13,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Launch Harness Docker Delegate Container
+      - name: Launch Harness Docker Delegate Container as Root User
         run: |
           docker run -d \
             --name docker-delegate \
             --net=host \
+            -u 0 \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e DELEGATE_NAME=docker-delegate \
             -e NEXT_GEN="true" \
@@ -30,6 +31,6 @@ jobs:
 
       - name: Keep Delegate Active for Pipeline Execution
         run: |
-          echo "Harness Delegate ACTIVE on Cloud VM!"
+          echo "Harness Delegate ACTIVE (Root User) on Cloud VM!"
           echo "Listening for pipeline executions..."
           sleep 1800
