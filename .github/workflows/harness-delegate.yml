@@ -1,4 +1,4 @@
-name: Harness Docker Delegate Host
+name: Harness Kubernetes Delegate Host
 
 on:
   workflow_dispatch:
@@ -6,39 +6,31 @@ on:
     branches: [ main ]
 
 jobs:
-  run-harness-delegate:
-    name: Run Harness Delegate on Cloud VM
+  run-k8s-delegate:
+    name: Run Harness Kubernetes Delegate on Cloud K8s
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Launch Harness CI Lite-Engine & Delegate Stack on Host Network
+      - name: Install Lightweight Kubernetes (k3s) & Deploy Harness Delegate
         run: |
-          echo "Starting Harness CI Lite-Engine on Host Port 3000..."
-          docker run -d \
-            --name harness-ci-lite-engine \
-            --net=host \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            us-docker.pkg.dev/gar-prod-setup/harness-public/harness/ci-lite-engine:latest || true
+          echo "Installing lightweight k3s Kubernetes cluster..."
+          curl -sfL https://get.k3s.io | sh -
+          sudo chmod 644 /etc/rancher/k3s/k3s.yaml
+          export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
 
-          echo "Starting Harness Docker Delegate on Host Network..."
-          docker run -d \
-            --name docker-delegate \
-            --net=host \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -e DELEGATE_NAME=docker-delegate \
-            -e NEXT_GEN="true" \
-            -e DELEGATE_TYPE="DOCKER" \
-            -e ACCOUNT_ID=1G9ZhWoTSCOo9I9qLmV9VA \
-            -e DELEGATE_TOKEN=ZTc2YTRiOGJjMjJhNjQ5NmRkNzZlOTY2OTQzMDdiNjg= \
-            -e DELEGATE_TAGS="docker-delegate,linux-amd64" \
-            -e MANAGER_HOST_AND_PORT=https://app.harness.io \
-            -e RUNNER_URL="http://127.0.0.1:3000" \
-            us-docker.pkg.dev/gar-prod-setup/harness-public/harness/delegate:26.07.89707
+          echo "Checking Kubernetes Cluster Node status..."
+          kubectl get nodes
 
-      - name: Keep Delegate Active for Pipeline Execution
+          echo "Deploying Harness Kubernetes Delegate..."
+          kubectl apply -f harness-delegate.yaml
+
+          echo "Waiting for Harness Delegate pod to start..."
+          kubectl rollout status deployment/k8s-delegate -n harness-delegate-ng --timeout=180s
+
+      - name: Keep Kubernetes Delegate Active for Pipeline Execution
         run: |
-          echo "Harness Delegate & CI Lite Engine ACTIVE on Cloud VM."
-          echo "Listening for Harness pipeline executions..."
+          echo "Harness Kubernetes Delegate ACTIVE on Cloud K8s Cluster!"
+          echo "Listening for pipeline executions..."
           sleep 1800
