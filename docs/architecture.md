@@ -1,12 +1,12 @@
 # Enterprise Cloud Delivery Platform — System Architecture Specification
 
 ## Executive Summary
-This document specifies the technical architecture for the **Enterprise Cloud Delivery Platform**, built using **Harness Platform**, **GitHub**, and **Python Microservices**. 
+This document specifies the technical architecture for the **Enterprise Cloud Delivery Platform**, built using **Harness Platform**, **Harness Kubernetes/Docker Delegate**, **Docker Hub Registry**, **Render Web Service**, and **Python Flask Microservices**. 
 
 The platform is designed around three core principles:
-1. **Shift-Left Security & Quality**: Automated testing and vulnerability scanning prior to artifact creation.
-2. **Artifact Immutability**: Strict tagging via Git Commit SHA (`harness-demo:<git-sha>`).
-3. **Enterprise Release Governance**: Environment promotion across DEV/PROD with deployment verifications and approval gates.
+1. **Shift-Left Security & Quality**: Automated testing (`pytest`), supply chain auditing (`pip-audit`), and SAST scanning (`Bandit`) prior to artifact creation on the Harness Delegate.
+2. **Artifact Immutability**: Strict tagging via Git Commit SHA (`sourabh5050/harness-demo:<git-sha>`).
+3. **Enterprise Release Governance**: Environment promotion across DEV/PROD with real live HTTPS deployment verifications and executive approval gates.
 
 ---
 
@@ -16,20 +16,40 @@ The platform is designed around three core principles:
 [ Developer Commit ]
         │
         ▼
-[ GitHub Repository ] ──► (Webhook Trigger)
-                                │
-                                ▼
-               [ Shift-Left CI Stage (GitHub Cloud VM) ]
-                 ├── 1. pytest Unit Testing (GET /, /health, /version)
-                 ├── 2. pip-audit Dependency CVE Audit
-                 ├── 3. Trivy Container Vulnerability & Secret Scan
-                 └── 4. Immutable Docker Build (harness-demo:<git-sha>)
-                                │
-                                ▼
-               [ Harness CD Release Control Plane ]
-                 ├── Stage 1: DEV Deployment & Health Probe Verification
-                 ├── Stage 2: Executive Security & Governance Approval Gate
-                 └── Stage 3: PROD Promotion & Post-Deployment Verification
+[ GitHub Repository (Sourabh-50/harness-cloud-delivery-demo) ]
+        │
+        ▼
+[ Harness Delegate (In-Cluster Executor) ]
+        │
+        ▼
+┌─────────────────────────────────────────────────────────┐
+│ STAGE 1: Shift-Left Quality, Security & Build Stage     │
+├─────────────────────────────────────────────────────────┤
+│ ├── 1. pytest Unit Testing (GET /, /health, /version)   │
+│ ├── 2. pip-audit Software Supply Chain Audit             │
+│ ├── 3. Bandit Static Application Security Testing (SAST)│
+│ ├── 4. Immutable Docker Build & Push (sourabh5050)      │
+│ └── 5. Non-Root Container Execution Hardening Audit     │
+└──────────────────────────┬──────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│ STAGE 2: Executive Security & Governance Approval Gate  │
+├─────────────────────────────────────────────────────────┤
+│ └── HarnessApproval Gate (Manager Review in Harness UI) │
+└──────────────────────────┬──────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│ STAGE 3: Continuous Delivery & Live Verification Stage  │
+├─────────────────────────────────────────────────────────┤
+│ ├── Step 6: Real HTTPS /health Verification Probe       │
+│ └── Step 7: Real HTTPS /version Verification Probe      │
+└──────────────────────────┬──────────────────────────────┘
+                           │
+                           ▼
+       [ Render Production Web Service (Live HTTPS) ]
+            https://harness-demo-dev.onrender.com
 ```
 
 ---
@@ -45,16 +65,17 @@ The platform is designed around three core principles:
 
 ### 2. Containerization (`Dockerfile`)
 * **Base Image**: `python:3.11-slim` (Debian-based glibc, minimal attack surface).
-* **Security Hardening**: Non-root system execution (`appuser`, UID 10001).
-* **Process Manager**: Gunicorn WSGI server running 2 worker processes on port 5000.
+* **Security Hardening**: Non-root system execution (`useradd -u 10001 -g appgroup -m -s /bin/false appuser`), granting dedicated ownership over `/app` and `/home/appuser` so Gunicorn worker control server starts cleanly.
+* **Process Manager**: Gunicorn WSGI server running 2 worker processes bound to `0.0.0.0:5000`.
 
-### 3. Shift-Left CI Engine (`.github/workflows/ci.yml`)
+### 3. Shift-Left CI Stage (Harness Delegate)
 * **Unit Testing**: `pytest` running automated REST API assertions.
 * **Software Supply Chain Audit**: `pip-audit` scanning `requirements.txt` against OSV/PyPI CVE databases.
-* **Container & Repo Scanner**: `Trivy` scanning filesystem layers for hardcoded secrets and OS-level vulnerabilities.
-* **Immutable Builder**: `docker build` generating image tag `harness-demo:${GITHUB_SHA::7}`.
+* **Static Application Security Testing**: `Bandit` scanning Python AST for hardcoded IP bindings and security misconfigurations.
+* **Immutable Builder & Push**: Static Docker CLI client (`docker-24.0.7`) building and pushing tagged images (`sourabh5050/harness-demo:${COMMIT_SHA}`) to Docker Hub using Harness Secret Manager (`account.docker_hub_pat`).
+* **Container Hardening Audit**: `grep "USER appuser"` verifying non-root isolation posture.
 
-### 4. Harness CD Control Plane (`harness-delegate-ci-pipeline`)
-* **Stage 1 (DEV Verification)**: Executes HTTP `/health` probe verification.
-* **Stage 2 (Executive Approval Gate)**: Halts pipeline execution until authorized SecOps / Leadership sign-off is granted in Harness UI.
-* **Stage 3 (PROD Verification)**: Promotes artifact to Production, validates `/health` and `/version` endpoints, and enforces automated rollback safeguards.
+### 4. Harness Release Governance & CD Control Plane (`harness-delegate-ci-pipeline`)
+* **Stage 1 (CI & Security Audit)**: Shift-left testing, auditing, building, pushing, and hardening verification.
+* **Stage 2 (Executive Approval Gate)**: Halts pipeline execution until authorized SecOps / Leadership sign-off is granted in Harness UI (`account._account_all_users`).
+* **Stage 3 (CD & Verification Probes)**: Deploys hardened container to Render Web Service (`https://harness-demo-dev.onrender.com`), validates live HTTPS `/health` and `/version` endpoints, and enforces automated rollback safeguards on failure.
