@@ -29,8 +29,8 @@ jobs:
             -e MANAGER_HOST_AND_PORT=https://app.harness.io \
             us-docker.pkg.dev/gar-prod-setup/harness-public/harness/delegate:26.07.89707
 
-      - name: Keep Delegate Active for Pipeline Execution
+      - name: Keep Delegate Active for 6 Hours
         run: |
           echo "Harness Delegate ACTIVE (Root User) on Cloud VM!"
-          echo "Listening for pipeline executions..."
-          sleep 1800
+          echo "Listening for pipeline executions for 6 hours..."
+          sleep 21600
