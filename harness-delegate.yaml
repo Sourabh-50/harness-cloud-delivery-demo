@@ -88,3 +88,9 @@ spec:
               fieldPath: metadata.namespace
         - name: NEXT_GEN
           value: "true"
+        - name: RUNNER_URL
+          value: "http://127.0.0.1:3000"
+      - image: us-docker.pkg.dev/gar-prod-setup/harness-public/harness/ci-lite-engine:latest
+        name: ci-lite-engine
+        ports:
+          - containerPort: 3000
