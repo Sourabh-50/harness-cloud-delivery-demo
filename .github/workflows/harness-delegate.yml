@@ -13,9 +13,21 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Launch Harness Docker Delegate with Embedded CI Runner Engine
+      - name: Launch Harness Official CI Runner & Delegate Stack
         run: |
-          echo "Starting Harness Docker Delegate with CI Runner Daemon on Port 3000..."
+          echo "Launching Official Drone CI Runner Container on Port 3000..."
+          docker run -d \
+            --name harness-ci-runner \
+            --net=host \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -e DRONE_RPC_PROTO=https \
+            -e DRONE_RPC_HOST=app.harness.io \
+            -e DRONE_RPC_SECRET=ZTc2YTRiOGJjMjJhNjQ5NmRkNzZlOTY2OTQzMDdiNjg= \
+            -e DRONE_RUNNER_CAPACITY=2 \
+            -e DRONE_RUNNER_NAME=docker-delegate \
+            drone/drone-runner-docker:1 || true
+
+          echo "Launching Harness Docker Delegate..."
           docker run -d \
             --name docker-delegate \
             --net=host \
@@ -28,18 +40,16 @@ jobs:
             -e DELEGATE_TAGS="docker-delegate,linux-amd64" \
             -e MANAGER_HOST_AND_PORT=https://app.harness.io \
             -e RUNNER_URL="http://127.0.0.1:3000" \
-            -e INIT_SCRIPT="apt-get update && apt-get install -y wget && wget -q https://github.com/drone-runners/drone-runner-docker/releases/download/v1.8.3/drone-runner-docker_linux_amd64.tar.gz -O /tmp/runner.tar.gz && tar -xzf /tmp/runner.tar.gz -C /usr/local/bin && nohup /usr/local/bin/drone-runner-docker daemon > /tmp/runner.log 2>&1 &" \
             us-docker.pkg.dev/gar-prod-setup/harness-public/harness/delegate:26.07.89707
 
-      - name: Verify Port 3000 CI Runner Daemon Status
+      - name: Verify Running Containers & Port 3000 Status
         run: |
-          sleep 10
-          echo "Checking active listening ports on host VM..."
-          sudo netstat -tulpn || sudo ss -tulpn || true
+          sleep 5
           docker ps
+          sudo netstat -tulpn || sudo ss -tulpn || true
 
       - name: Keep Delegate Active for Pipeline Execution
         run: |
-          echo "Harness Docker Delegate ACTIVE on Cloud VM!"
+          echo "Harness Delegate & Official CI Runner ACTIVE on Cloud VM!"
           echo "Listening for pipeline executions..."
           sleep 1800
