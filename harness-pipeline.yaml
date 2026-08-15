@@ -88,8 +88,14 @@ pipeline:
     - stage:
         name: Continuous Delivery CD - DEV
         identifier: cd_dev_stage
-        type: Custom
+        type: CI
         spec:
+          cloneCodebase: false
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: k8s_delegate
+              namespace: harness-delegate-ng
           execution:
             steps:
               - step:
@@ -144,8 +150,14 @@ pipeline:
     - stage:
         name: Continuous Delivery CD - PROD
         identifier: cd_prod_stage
-        type: Custom
+        type: CI
         spec:
+          cloneCodebase: false
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: k8s_delegate
+              namespace: harness-delegate-ng
           execution:
             steps:
               - step:
