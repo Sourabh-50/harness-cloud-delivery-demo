@@ -7,8 +7,8 @@ pipeline:
   properties:
     ci:
       codebase:
-        connectorRef: account.github_connector
-        repoName: Sourabh-50/harness-cloud-delivery-demo
+        connectorRef: <+input>
+        repoName: <+input>
         build: <+input>
   stages:
     # =========================================================
