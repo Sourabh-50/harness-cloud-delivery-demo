@@ -7,8 +7,8 @@ pipeline:
   properties:
     ci:
       codebase:
-        connectorRef: <+input>
-        repoName: <+input>
+        connectorRef: account.github_connector
+        repoName: Sourabh-50/harness-cloud-delivery-demo
         build: <+input>
   stages:
     # =========================================================
@@ -21,10 +21,11 @@ pipeline:
         spec:
           cloneCodebase: true
           infrastructure:
-            type: KubernetesDirect
+            type: VM
             spec:
-              connectorRef: <+input>
-              namespace: harness-delegate-ng
+              type: Pool
+              spec:
+                connectorRef: account.docker_delegate
           execution:
             steps:
               - step:
@@ -32,7 +33,7 @@ pipeline:
                   name: 1. Run Automated Unit Tests pytest
                   identifier: run_unit_tests
                   spec:
-                    connectorRef: <+input>
+                    connectorRef: account.docker_delegate
                     image: python:3.11-slim
                     command: |
                       pip install -r requirements.txt
@@ -44,7 +45,7 @@ pipeline:
                   name: 2. Dependency Vulnerability Audit pip audit
                   identifier: dependency_audit
                   spec:
-                    connectorRef: <+input>
+                    connectorRef: account.docker_delegate
                     image: python:3.11-slim
                     command: |
                       pip install pip-audit
@@ -55,7 +56,7 @@ pipeline:
                   name: 3. Static Application Security Scan Bandit SAST
                   identifier: bandit_sast_scan
                   spec:
-                    connectorRef: <+input>
+                    connectorRef: account.docker_delegate
                     image: python:3.11-slim
                     command: |
                       pip install bandit
@@ -79,7 +80,7 @@ pipeline:
                   name: 5. Container Isolation Hardening Audit
                   identifier: container_hardening_audit
                   spec:
-                    connectorRef: <+input>
+                    connectorRef: account.docker_delegate
                     image: alpine:latest
                     command: |
                       grep "USER appuser" Dockerfile
@@ -99,7 +100,7 @@ pipeline:
                   name: 1. Trigger DEV Deployment
                   identifier: dev_deployment_trigger
                   spec:
-                    connectorRef: <+input>
+                    connectorRef: account.docker_delegate
                     image: curlimages/curl:latest
                     command: |
                       echo "CD DEV Stage picked up build <+codebase.commitSha> from CI Stage."
@@ -110,7 +111,7 @@ pipeline:
                   name: 2. Live DEV Verification Probe
                   identifier: dev_live_verification
                   spec:
-                    connectorRef: <+input>
+                    connectorRef: account.docker_delegate
                     image: curlimages/curl:latest
                     command: |
                       echo "Executing live DEV health and version verification..."
@@ -155,7 +156,7 @@ pipeline:
                   name: 1. Live HTTPS Production health Probe
                   identifier: prod_health_probe
                   spec:
-                    connectorRef: <+input>
+                    connectorRef: account.docker_delegate
                     image: curlimages/curl:latest
                     command: |
                       curl -s -f --retry 3 --retry-delay 5 https://harness-demo-dev.onrender.com/health
@@ -165,7 +166,7 @@ pipeline:
                   name: 2. Live HTTPS Production version Probe
                   identifier: prod_version_probe
                   spec:
-                    connectorRef: <+input>
+                    connectorRef: account.docker_delegate
                     image: curlimages/curl:latest
                     command: |
                       curl -s -f --retry 3 --retry-delay 5 https://harness-demo-dev.onrender.com/version
