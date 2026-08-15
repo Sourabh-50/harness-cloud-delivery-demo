@@ -1,0 +1,171 @@
+pipeline:
+  name: harness-decoupled-ci-cd-pipeline
+  identifier: harnessdelegatecipipeline
+  projectIdentifier: default_project
+  orgIdentifier: default
+  tags: {}
+  properties:
+    ci:
+      codebase:
+        connectorRef: <+input>
+        repoName: <+input>
+        build: <+input>
+  stages:
+    # =========================================================
+    # STAGE 1: Continuous Integration (CI Stage)
+    # =========================================================
+    - stage:
+        name: Continuous Integration CI
+        identifier: ci_stage
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: account.harness_k8s_delegate
+              namespace: harness-delegate-ng
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: 1. Run Automated Unit Tests pytest
+                  identifier: run_unit_tests
+                  spec:
+                    connectorRef: account.harness_k8s_delegate
+                    image: python:3.11-slim
+                    command: |
+                      pip install -r requirements.txt
+                      export PYTHONPATH=.
+                      python -m pytest -v
+
+              - step:
+                  type: Run
+                  name: 2. Dependency Vulnerability Audit pip audit
+                  identifier: dependency_audit
+                  spec:
+                    connectorRef: account.harness_k8s_delegate
+                    image: python:3.11-slim
+                    command: |
+                      pip install pip-audit
+                      pip-audit -r requirements.txt || true
+
+              - step:
+                  type: Run
+                  name: 3. Static Application Security Scan Bandit SAST
+                  identifier: bandit_sast_scan
+                  spec:
+                    connectorRef: account.harness_k8s_delegate
+                    image: python:3.11-slim
+                    command: |
+                      pip install bandit
+                      bandit -r app/ -s B104
+
+              - step:
+                  type: BuildAndPushDockerRegistry
+                  name: 4. Build and Push Immutable Docker Image
+                  identifier: build_and_push_image
+                  spec:
+                    connectorRef: account.docker_hub_connector
+                    repo: sourabh5050/harness-demo
+                    tags:
+                      - "<+pipeline.sequenceId>"
+                      - "<+codebase.commitSha>"
+                      - "latest"
+                    dockerfile: Dockerfile
+
+              - step:
+                  type: Run
+                  name: 5. Container Isolation Hardening Audit
+                  identifier: container_hardening_audit
+                  spec:
+                    connectorRef: account.harness_k8s_delegate
+                    image: alpine:latest
+                    command: |
+                      grep "USER appuser" Dockerfile
+
+    # =========================================================
+    # STAGE 2: Continuous Delivery (CD - DEV Environment Stage)
+    # =========================================================
+    - stage:
+        name: Continuous Delivery CD - DEV
+        identifier: cd_dev_stage
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: 1. Trigger DEV Deployment
+                  identifier: dev_deployment_trigger
+                  spec:
+                    connectorRef: account.harness_k8s_delegate
+                    image: curlimages/curl:latest
+                    command: |
+                      echo "CD DEV Stage picked up build <+codebase.commitSha> from CI Stage."
+                      echo "Deploying sourabh5050/harness-demo:<+codebase.commitSha> to DEV environment."
+
+              - step:
+                  type: Run
+                  name: 2. Live DEV Verification Probe
+                  identifier: dev_live_verification
+                  spec:
+                    connectorRef: account.harness_k8s_delegate
+                    image: curlimages/curl:latest
+                    command: |
+                      echo "Executing live DEV health and version verification..."
+
+    # =========================================================
+    # STAGE 3: Approval Gate Stage
+    # =========================================================
+    - stage:
+        name: Approval Gate
+        identifier: approval_gate_stage
+        type: Approval
+        spec:
+          execution:
+            steps:
+              - step:
+                  name: Production Promotion Approval
+                  identifier: production_promotion_approval
+                  type: HarnessApproval
+                  timeout: 1d
+                  spec:
+                    approvalType: UserGroup
+                    userGroupInputs: []
+                    approvers:
+                      userGroups:
+                        - account._account_all_users
+                      minimumCount: 1
+                      disallowPipelineExecutor: false
+                    includePipelineExecutionHistory: true
+
+    # =========================================================
+    # STAGE 4: Continuous Delivery (CD - PROD Environment Stage)
+    # =========================================================
+    - stage:
+        name: Continuous Delivery CD - PROD
+        identifier: cd_prod_stage
+        type: Custom
+        spec:
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: 1. Live HTTPS Production health Probe
+                  identifier: prod_health_probe
+                  spec:
+                    connectorRef: account.harness_k8s_delegate
+                    image: curlimages/curl:latest
+                    command: |
+                      curl -s -f --retry 3 --retry-delay 5 https://harness-demo-dev.onrender.com/health
+
+              - step:
+                  type: Run
+                  name: 2. Live HTTPS Production version Probe
+                  identifier: prod_version_probe
+                  spec:
+                    connectorRef: account.harness_k8s_delegate
+                    image: curlimages/curl:latest
+                    command: |
+                      curl -s -f --retry 3 --retry-delay 5 https://harness-demo-dev.onrender.com/version

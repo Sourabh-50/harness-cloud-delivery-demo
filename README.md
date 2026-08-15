@@ -5,32 +5,39 @@ An enterprise-grade, production-verified DevSecOps continuous delivery platform 
 ## Architecture Overview
 
 ```
-[ Developer Push ] ──► [ GitHub Repo ] ──► [ Harness Delegate (In-Cluster) ]
+[ Developer Push ] ──► [ GitHub Repo ] ──► [ Harness Delegate / GitHub Runner ]
                                                     │
     ┌───────────────────────────────────────────────┴───────────────────────────────┐
-    │ STAGE 1: Shift-Left Quality Security and Build Stage (pytest, pip-audit,     │
-    │          Bandit SAST, Docker Build & Push sourabh5050/harness-demo:<git-sha>, │
-    │          Container Hardening Audit)                                           │
-    └───────────────────────────────────────────────┬───────────────────────────────┘
-                                                    │
-                                                    ▼
+    │ STAGE 1: Continuous Integration (CI Stage)                                    │
+    │          (pytest, pip-audit, Bandit SAST, Trivy Scan, Build & Push            │
+    │          sourabh5050/harness-demo:<git-sha>, Non-Root Audit)                 │
+    └───────────────────────────────┬───────────────────────────────────────────────┘
+                                    │ (Artifact Published & Triggered)
+                                    ▼
     ┌───────────────────────────────────────────────────────────────────────────────┐
-    │ STAGE 2: Executive Approval Gate (HarnessApproval Gate)                       │
-    └───────────────────────────────────────────────┬───────────────────────────────┘
-                                                    │
-                                                    ▼
+    │ STAGE 2: Continuous Delivery (CD Stage - DEV Environment)                     │
+    │          (Automated Deployment to DEV, Live Health & Version Verification)   │
+    └───────────────────────────────┬───────────────────────────────────────────────┘
+                                    │
+                                    ▼
     ┌───────────────────────────────────────────────────────────────────────────────┐
-    │ STAGE 3: Continuous Delivery and Live Verification Stage                      │
+    │ STAGE 3: Approval Gate                                                        │
+    │          (Governance Review in Harness UI / GitHub Environment)               │
+    └───────────────────────────────┬───────────────────────────────────────────────┘
+                                    │ (Approved)
+                                    ▼
+    ┌───────────────────────────────────────────────────────────────────────────────┐
+    │ STAGE 4: Continuous Delivery (CD Stage - PROD Environment)                    │
     │          (Real HTTPS /health & /version Probes against Render Production)     │
     └───────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Core Features
-* **Multi-Stage DevSecOps Pipeline**: 3-stage pipeline combining CI quality checks, manual approval governance, and continuous delivery live verification.
+* **Decoupled Multi-Stage CI/CD Pipeline**: Explicit architectural separation between Continuous Integration (CI) and Continuous Delivery (CD) across DEV and PROD environments.
 * **Shift-Left Security & SAST**: `pytest` unit testing, `pip-audit` software supply chain CVE scanning, and `Bandit` static application security analysis.
 * **Immutable Artifact Registry**: Docker container tagged strictly with Git SHA (`sourabh5050/harness-demo:<git-sha>`) and pushed to Docker Hub via Harness Secret Manager (`account.docker_hub_pat`).
 * **Non-Root Execution Hardening**: Non-root system user (`appuser` UID 10001) with dedicated `/home/appuser` home directory permission isolation for Gunicorn worker control sockets.
-* **Live CD Deployment & Verification**: Hardened container running live on Render (`https://harness-demo-dev.onrender.com`), verified by real-time automated HTTPS cURL probes in Harness Stage 3.
+* **Automated Dev Delivery & Production Verification**: Immediate DEV deployment upon CI build completion, followed by an Approval Gate before PROD release (`https://harness-demo-dev.onrender.com`).
 * **Zero Cost Safeguard**: Designed and executed with zero billable cloud cost ($0 / ₹0).
 
 ## Production Microservice API Endpoints

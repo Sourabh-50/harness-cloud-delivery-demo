@@ -19,11 +19,11 @@ The platform is designed around three core principles:
 [ GitHub Repository (Sourabh-50/harness-cloud-delivery-demo) ]
         │
         ▼
-[ Harness Delegate (In-Cluster Executor) ]
+[ Harness Delegate / GitHub Action Execution Runner ]
         │
         ▼
 ┌─────────────────────────────────────────────────────────┐
-│ STAGE 1: Shift-Left Quality, Security & Build Stage     │
+│ STAGE 1: Continuous Integration (CI Stage)              │
 ├─────────────────────────────────────────────────────────┤
 │ ├── 1. pytest Unit Testing (GET /, /health, /version)   │
 │ ├── 2. pip-audit Software Supply Chain Audit             │
@@ -31,20 +31,28 @@ The platform is designed around three core principles:
 │ ├── 4. Immutable Docker Build & Push (sourabh5050)      │
 │ └── 5. Non-Root Container Execution Hardening Audit     │
 └──────────────────────────┬──────────────────────────────┘
-                           │
+                           │ (Artifact Published & Output Passed)
                            ▼
 ┌─────────────────────────────────────────────────────────┐
-│ STAGE 2: Executive Security & Governance Approval Gate  │
+│ STAGE 2: Continuous Delivery (CD Stage - DEV)           │
 ├─────────────────────────────────────────────────────────┤
-│ └── HarnessApproval Gate (Manager Review in Harness UI) │
+│ ├── Step 1: Pick up Container Tag & Deploy to DEV       │
+│ └── Step 2: DEV Live Health & Version Verification      │
 └──────────────────────────┬──────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────┐
-│ STAGE 3: Continuous Delivery & Live Verification Stage  │
+│ STAGE 3: Approval Gate                                  │
 ├─────────────────────────────────────────────────────────┤
-│ ├── Step 6: Real HTTPS /health Verification Probe       │
-│ └── Step 7: Real HTTPS /version Verification Probe      │
+│ └── HarnessApproval Gate (Governance Sign-off)          │
+└──────────────────────────┬──────────────────────────────┘
+                           │ (Approved)
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│ STAGE 4: Continuous Delivery (CD Stage - PROD)          │
+├─────────────────────────────────────────────────────────┤
+│ ├── Step 1: Real HTTPS /health Verification Probe       │
+│ └── Step 2: Real HTTPS /version Verification Probe      │
 └──────────────────────────┬──────────────────────────────┘
                            │
                            ▼
@@ -59,23 +67,23 @@ The platform is designed around three core principles:
 ### 1. Application Layer (`app/app.py`)
 * **Framework**: Python 3.11 / Flask / Gunicorn WSGI.
 * **Endpoints**:
-  * `GET /`: Platform welcome & status API.
+  * `GET /`: Platform status API.
   * `GET /health`: Operational health probe returning `{"status": "healthy"}` for deployment verification steps.
   * `GET /version`: Metadata endpoint exposing application version and Git SHA commit tracking.
 
 ### 2. Containerization (`Dockerfile`)
 * **Base Image**: `python:3.11-slim` (Debian-based glibc, minimal attack surface).
-* **Security Hardening**: Non-root system execution (`useradd -u 10001 -g appgroup -m -s /bin/false appuser`), granting dedicated ownership over `/app` and `/home/appuser` so Gunicorn worker control server starts cleanly.
+* **Security Hardening**: Non-root system execution (`useradd -u 10001 -g appgroup -m -s /bin/false appuser`), granting dedicated ownership over `/app` and `/home/appuser` so Gunicorn worker control sockets start cleanly.
 * **Process Manager**: Gunicorn WSGI server running 2 worker processes bound to `0.0.0.0:5000`.
 
-### 3. Shift-Left CI Stage (Harness Delegate)
+### 3. Continuous Integration Stage (CI)
 * **Unit Testing**: `pytest` running automated REST API assertions.
 * **Software Supply Chain Audit**: `pip-audit` scanning `requirements.txt` against OSV/PyPI CVE databases.
-* **Static Application Security Testing**: `Bandit` scanning Python AST for hardcoded IP bindings and security misconfigurations.
-* **Immutable Builder & Push**: Static Docker CLI client (`docker-24.0.7`) building and pushing tagged images (`sourabh5050/harness-demo:${COMMIT_SHA}`) to Docker Hub using Harness Secret Manager (`account.docker_hub_pat`).
+* **Static Application Security Testing**: `Bandit` scanning Python AST for security misconfigurations.
+* **Immutable Builder & Push**: Static Docker CLI client building and pushing tagged images (`sourabh5050/harness-demo:${COMMIT_SHA}`) to Docker Hub using Harness Secret Manager (`account.docker_hub_pat`).
 * **Container Hardening Audit**: `grep "USER appuser"` verifying non-root isolation posture.
 
-### 4. Harness Release Governance & CD Control Plane (`harness-delegate-ci-pipeline`)
-* **Stage 1 (CI & Security Audit)**: Shift-left testing, auditing, building, pushing, and hardening verification.
-* **Stage 2 (Executive Approval Gate)**: Halts pipeline execution until authorized SecOps / Leadership sign-off is granted in Harness UI (`account._account_all_users`).
-* **Stage 3 (CD & Verification Probes)**: Deploys hardened container to Render Web Service (`https://harness-demo-dev.onrender.com`), validates live HTTPS `/health` and `/version` endpoints, and enforces automated rollback safeguards on failure.
+### 4. Continuous Delivery & Approval Stages (CD)
+* **Stage 2 (CD Stage - DEV)**: Instantly picks up the pushed image tag upon CI completion, deploys to Development environment, and executes verification probes.
+* **Stage 3 (Approval Gate)**: Halts pipeline execution until authorized sign-off is granted in Harness UI (`account._account_all_users`) or GitHub environment approval.
+* **Stage 4 (CD Stage - PROD)**: Promotes hardened container to Render Web Service (`https://harness-demo-dev.onrender.com`), validates live HTTPS `/health` and `/version` endpoints, and enforces automated rollback safeguards on failure.
