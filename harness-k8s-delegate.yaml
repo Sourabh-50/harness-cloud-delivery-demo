@@ -96,3 +96,8 @@ spec:
         name: ci-lite-engine
         ports:
           - containerPort: 3000
+        env:
+          - name: HARNESS_LOG_PREFIX
+            value: "http://127.0.0.1:3000"
+          - name: PORT
+            value: "3000"
