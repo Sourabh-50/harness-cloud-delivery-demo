@@ -28,8 +28,6 @@ pipeline:
               platform:
                 os: Linux
                 arch: Amd64
-              delegateSelectors:
-                - docker-delegate
           execution:
             steps:
               - step:
