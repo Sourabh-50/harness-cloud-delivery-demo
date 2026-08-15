@@ -24,6 +24,10 @@ pipeline:
             type: KubernetesDirect
             spec:
               connectorRef: <+input>
+              namespace: harness-delegate-ng
+              platform:
+                os: Linux
+                arch: Amd64
               delegateSelectors:
                 - docker-delegate
           execution:
