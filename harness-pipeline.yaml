@@ -32,6 +32,7 @@ pipeline:
                   name: 1. Run Automated Unit Tests pytest
                   identifier: run_unit_tests
                   spec:
+                    connectorRef: <+input>
                     image: python:3.11-slim
                     command: |
                       pip install -r requirements.txt
@@ -43,6 +44,7 @@ pipeline:
                   name: 2. Dependency Vulnerability Audit pip audit
                   identifier: dependency_audit
                   spec:
+                    connectorRef: <+input>
                     image: python:3.11-slim
                     command: |
                       pip install pip-audit
@@ -53,6 +55,7 @@ pipeline:
                   name: 3. Static Application Security Scan Bandit SAST
                   identifier: bandit_sast_scan
                   spec:
+                    connectorRef: <+input>
                     image: python:3.11-slim
                     command: |
                       pip install bandit
@@ -76,6 +79,7 @@ pipeline:
                   name: 5. Container Isolation Hardening Audit
                   identifier: container_hardening_audit
                   spec:
+                    connectorRef: <+input>
                     image: alpine:latest
                     command: |
                       grep "USER appuser" Dockerfile
