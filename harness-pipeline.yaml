@@ -26,6 +26,8 @@ pipeline:
               type: Pool
               spec:
                 poolName: default
+            delegateSelectors:
+              - docker-delegate
           execution:
             steps:
               - step:
@@ -33,7 +35,6 @@ pipeline:
                   name: 1. Run Automated Unit Tests pytest
                   identifier: run_unit_tests
                   spec:
-                    connectorRef: account.docker_hub_connector
                     image: python:3.11-slim
                     command: |
                       pip install -r requirements.txt
@@ -45,7 +46,6 @@ pipeline:
                   name: 2. Dependency Vulnerability Audit pip audit
                   identifier: dependency_audit
                   spec:
-                    connectorRef: account.docker_hub_connector
                     image: python:3.11-slim
                     command: |
                       pip install pip-audit
@@ -56,7 +56,6 @@ pipeline:
                   name: 3. Static Application Security Scan Bandit SAST
                   identifier: bandit_sast_scan
                   spec:
-                    connectorRef: account.docker_hub_connector
                     image: python:3.11-slim
                     command: |
                       pip install bandit
@@ -67,7 +66,7 @@ pipeline:
                   name: 4. Build and Push Immutable Docker Image
                   identifier: build_and_push_image
                   spec:
-                    connectorRef: account.docker_hub_connector
+                    connectorRef: <+input>
                     repo: sourabh5050/harness-demo
                     tags:
                       - "<+pipeline.sequenceId>"
@@ -80,7 +79,6 @@ pipeline:
                   name: 5. Container Isolation Hardening Audit
                   identifier: container_hardening_audit
                   spec:
-                    connectorRef: account.docker_hub_connector
                     image: alpine:latest
                     command: |
                       grep "USER appuser" Dockerfile
@@ -100,7 +98,6 @@ pipeline:
                   name: 1. Trigger DEV Deployment
                   identifier: dev_deployment_trigger
                   spec:
-                    connectorRef: account.docker_hub_connector
                     image: curlimages/curl:latest
                     command: |
                       echo "CD DEV Stage picked up build <+codebase.commitSha> from CI Stage."
@@ -111,7 +108,6 @@ pipeline:
                   name: 2. Live DEV Verification Probe
                   identifier: dev_live_verification
                   spec:
-                    connectorRef: account.docker_hub_connector
                     image: curlimages/curl:latest
                     command: |
                       echo "Executing live DEV health and version verification..."
@@ -156,7 +152,6 @@ pipeline:
                   name: 1. Live HTTPS Production health Probe
                   identifier: prod_health_probe
                   spec:
-                    connectorRef: account.docker_hub_connector
                     image: curlimages/curl:latest
                     command: |
                       curl -s -f --retry 3 --retry-delay 5 https://harness-demo-dev.onrender.com/health
@@ -166,7 +161,6 @@ pipeline:
                   name: 2. Live HTTPS Production version Probe
                   identifier: prod_version_probe
                   spec:
-                    connectorRef: account.docker_hub_connector
                     image: curlimages/curl:latest
                     command: |
                       curl -s -f --retry 3 --retry-delay 5 https://harness-demo-dev.onrender.com/version
