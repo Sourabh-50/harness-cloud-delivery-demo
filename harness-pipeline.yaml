@@ -21,13 +21,10 @@ pipeline:
         spec:
           cloneCodebase: true
           infrastructure:
-            type: VM
+            type: KubernetesDirect
             spec:
-              type: Pool
-              spec:
-                poolName: default
-            delegateSelectors:
-              - docker-delegate
+              connectorRef: <+input>
+              namespace: harness-delegate-ng
           execution:
             steps:
               - step:
