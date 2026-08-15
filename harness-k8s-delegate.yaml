@@ -96,6 +96,9 @@ spec:
         name: ci-lite-engine
         ports:
           - containerPort: 3000
+        envFrom:
+          - secretRef:
+              name: k8s-delegate-account-token
         env:
           - name: HARNESS_ACCOUNT_ID
             value: "1G9ZhWoTSCOo9I9qLmV9VA"
@@ -105,3 +108,8 @@ spec:
             value: "http://127.0.0.1:3000"
           - name: PORT
             value: "3000"
+          - name: HARNESS_LOG_SERVICE_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: k8s-delegate-account-token
+                key: DELEGATE_TOKEN
