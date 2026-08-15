@@ -97,6 +97,10 @@ spec:
         ports:
           - containerPort: 3000
         env:
+          - name: HARNESS_ACCOUNT_ID
+            value: "1G9ZhWoTSCOo9I9qLmV9VA"
+          - name: ACCOUNT_ID
+            value: "1G9ZhWoTSCOo9I9qLmV9VA"
           - name: HARNESS_LOG_PREFIX
             value: "http://127.0.0.1:3000"
           - name: PORT
