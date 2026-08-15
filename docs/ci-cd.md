@@ -1,50 +1,73 @@
-# Continuous Integration & Continuous Delivery (CI/CD) Workflow
+# 🔄 Decoupled CI/CD Pipeline Specification (Harness NextGen)
 
-## Overview
-This platform implements an enterprise software delivery lifecycle (SDLC) with explicit architectural separation between **Continuous Integration (CI)** and **Continuous Delivery (CD)** across Development and Production environments.
+This document details the configuration, governance model, and delegate setup for the **Decoupled CI/CD Platform**.
 
 ---
 
-## 1. Multi-Stage Decoupled Pipeline Architecture
+## 📌 4-Stage Pipeline Architecture
 
 ```yaml
-Pipeline: harness-decoupled-ci-cd-pipeline / github-ci-cd-workflow
-├── Stage 1: Continuous Integration (CI Stage)
-│     ├── Step 1: Run Unit Tests (pytest -v)
-│     ├── Step 2: Dependency Security Audit (pip-audit)
-│     ├── Step 3: Repository Filesystem Scan (Bandit SAST / Trivy)
-│     ├── Step 4: Build & Push Immutable Docker Image (sourabh5050/harness-demo:<git-sha>)
-│     └── Step 5: Container Hardening Audit (grep "USER appuser" Dockerfile)
-├── Stage 2: Continuous Delivery (CD Stage - DEV Environment)
-│     ├── Step 1: Pick up Container Tag & Trigger DEV Deployment
-│     └── Step 2: Execute DEV Live Health & Version Verification Probes
-├── Stage 3: Approval Gate
-│     └── Step: Production Promotion Sign-off (HarnessApproval / GitHub Environment Approval)
-└── Stage 4: Continuous Delivery (CD Stage - PROD Environment)
-      ├── Step 1: Execute Live Health Verification Probe (curl -f .../health)
-      └── Step 2: Execute Live Version Verification Probe (curl -f .../version)
+stages:
+  - Stage 1: Continuous Integration (CI)       # Build, test, security audit
+  - Stage 2: Continuous Delivery (CD - DEV)    # Deploy to staging & verify
+  - Stage 3: Governance Approval Gate          # RBAC human sign-off
+  - Stage 4: Continuous Delivery (CD - PROD)   # Production release & HTTPS probes
 ```
+
+### Stage 1: Continuous Integration (CI)
+* **Type**: `CI` (`cloneCodebase: true`)
+* **Infrastructure**: `KubernetesDirect` (`namespace: harness-delegate-ng`, `connectorRef: k8s_delegate`)
+* **Steps**:
+  1. `run_unit_tests`: Executes `pytest` unit test suite in `python:3.11-slim` container.
+  2. `dependency_audit`: Audits Python packages using `pip-audit`.
+  3. `bandit_sast_scan`: Scans code for static vulnerabilities with `bandit`.
+  4. `build_and_push_image`: Builds and packages immutable Docker container image.
+  5. `container_hardening_audit`: Audits non-root `USER appuser` isolation in Dockerfile.
+
+### Stage 2: Continuous Delivery (CD - DEV)
+* **Type**: `CI` (`cloneCodebase: false`)
+* **Steps**:
+  1. `dev_deployment_trigger`: Promotes commit SHA artifact to DEV environment.
+  2. `dev_live_verification`: Executes live staging health verification probe.
+
+### Stage 3: Approval Gate
+* **Type**: `Approval` (`HarnessApproval`)
+* **Approvers**: `account._account_all_users` (minimum count: 1)
+* **Behavior**: Halts execution until authorized user approves promotion to Production.
+
+### Stage 4: Continuous Delivery (CD - PROD)
+* **Type**: `CI` (`cloneCodebase: false`)
+* **Steps**:
+  1. `prod_health_probe`: Executes `curl -s -k --max-time 15 https://harness-demo-dev.onrender.com/health`.
+  2. `prod_version_probe`: Executes `curl -s -k --max-time 15 https://harness-demo-dev.onrender.com/version`.
 
 ---
 
-## 2. Stage Breakdown & Execution Details
+## 🔌 Connector Configuration
 
-### Stage 1: Continuous Integration (CI Stage)
-- **Step 1 (`Run Unit Tests`)**: Executes `pytest -v` against API endpoints (`/`, `/health`, `/version`).
-- **Step 2 (`Dependency Security Audit`)**: Executes `pip-audit` to detect CVE vulnerabilities in Python dependencies before container creation.
-- **Step 3 (`Repository Security Scan`)**: Executes `Bandit` / `Trivy` SAST scanning Python source code AST for security misconfigurations.
-- **Step 4 (`Build Docker Image`)**: Builds `sourabh5050/harness-demo:${COMMIT_SHA}` & `:latest`, authenticates with Docker Hub using Harness Secret Manager (`account.docker_hub_pat`), and pushes immutable tags to Docker Hub.
-- **Step 5 (`Container Hardening Audit`)**: Audits `Dockerfile` verifying non-root system user posture (`USER appuser` UID 10001).
+| Connector Name | Identifier | Scope | Type | Details |
+|---|---|---|---|---|
+| **GitHub Connector** | `account.CICD_Connector` | Account | Git Repository | Connects to `Sourabh-50/harness-cloud-delivery-demo` |
+| **Kubernetes Cluster Connector** | `k8s_delegate` | Project | Kubernetes Cluster | Inherits credentials from active `k8s-delegate` |
 
-### Stage 2: Continuous Delivery (CD Stage - DEV)
-- **Objective**: As soon as the CI stage completes and pushes the immutable image tag to the registry, Stage 2 automatically triggers to deploy to the **Development (DEV)** environment.
-- **Verification**: Runs automated live `/health` and `/version` probes against DEV.
+---
 
-### Stage 3: Approval Gate
-- **Type**: `HarnessApproval` Step inside an `Approval` Stage.
-- **Objective**: Enforces release governance. Execution pauses after successful DEV deployment and verification, requiring sign-off before promoting to Production.
+## 💻 Kubernetes Delegate Deployment
 
-### Stage 4: Continuous Delivery (CD Stage - PROD)
-- **Step 1 (`Execute Live Health Verification Probe`)**: Hits live production HTTPS endpoint (`https://harness-demo-dev.onrender.com/health`) with automated retries, asserting HTTP `200 OK` and `{"status": "healthy"}`.
-- **Step 2 (`Execute Live Version Verification Probe`)**: Hits live production HTTPS endpoint (`https://harness-demo-dev.onrender.com/version`), asserting HTTP `200 OK` and Git commit metadata matching `"version":"1.0.0"`.
+Deploy the single-container Harness Delegate to your cluster:
 
+```bash
+kubectl apply -f harness-k8s-delegate.yaml
+```
+
+Verify pod health:
+
+```bash
+kubectl get pods -n harness-delegate-ng
+```
+
+Expected Output:
+```text
+NAME                           READY   STATUS    RESTARTS   AGE
+k8s-delegate-b78489f9b-rjzbw   1/1     Running   0          5m
+```

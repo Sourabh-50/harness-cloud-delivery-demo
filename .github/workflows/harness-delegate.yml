@@ -2,8 +2,6 @@ name: Harness Delegate Host
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
 
 jobs:
   run-harness-delegate:
@@ -24,7 +22,7 @@ jobs:
             -e NEXT_GEN="true" \
             -e DELEGATE_TYPE="DOCKER" \
             -e ACCOUNT_ID=1G9ZhWoTSCOo9I9qLmV9VA \
-            -e DELEGATE_TOKEN=ZTc2YTRiOGJjMjJhNjQ5NmRkNzZlOTY2OTQzMDdiNjg= \
+            -e DELEGATE_TOKEN=ZTc2YTRiOGJjMjJhNxQ5NmRkNzZlOTY2OTQzMDdiNjg= \
             -e DELEGATE_TAGS="docker-delegate,linux-amd64" \
             -e MANAGER_HOST_AND_PORT=https://app.harness.io \
             us-docker.pkg.dev/gar-prod-setup/harness-public/harness/delegate:26.07.89707

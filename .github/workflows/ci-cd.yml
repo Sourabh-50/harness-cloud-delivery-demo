@@ -1,10 +1,6 @@
 name: Enterprise Decoupled CI/CD Pipeline
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -88,7 +84,6 @@ jobs:
       - name: 2. Run DEV Live Health Verification Probe
         run: |
           echo "Verifying DEV environment operational readiness..."
-          # Real verification probe against DEV environment target
           curl -s -f http://127.0.0.1:5000/health || echo "DEV Mock Health Probe: Healthy (200 OK)"
 
       - name: 3. Run DEV Live Version Verification Probe

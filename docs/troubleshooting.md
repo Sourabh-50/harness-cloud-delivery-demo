@@ -1,34 +1,65 @@
-# Troubleshooting Guide & FDE Customer Scenario Playbook
+# 🛠️ CI/CD & Kubernetes Troubleshooting Guide
 
-## Common Operational Issues & Remediation
-
-| Symptom | Root Cause | Resolution |
-| :--- | :--- | :--- |
-| **`Permission denied: '/home/appuser'`** | Gunicorn v26 worker control socket requires non-root home directory ownership. | Update `Dockerfile` to `useradd -m` and `chown -R appuser:appgroup /app /home/appuser`. |
-| **`unauthorized: incorrect username or password`** | Docker Hub login used incorrect username handle or unescaped secret reference. | Use exact Docker Hub username (`sourabh5050`) and reference secret via `<+secrets.getValue("account.docker_hub_pat")>`. |
-| **`pip3: command not found` on Delegate** | Delegate execution container missing Python package manager. | Add package installation check: `if ! command -v python3; then microdnf install -y python3 python3-pip git; fi`. |
-| **`ModuleNotFoundError: No module named 'app'`** | Python PATH missing repository root during `pytest`. | Run tests using `export PYTHONPATH=. && python -m pytest -v`. |
+This guide documents common errors encountered during Harness CI/CD execution and their resolution.
 
 ---
 
-## Forward Deployed Engineer (FDE) Customer Incident Playbook
+## 1. Issue: `0/1 nodes are available: 1 Insufficient cpu`
 
-### Scenario
-> *"An enterprise customer reports that their production deployment pipeline is stuck at the Executive Approval Gate stage during a critical release window."*
+### Symptom:
+Stage initialization fails with Kubernetes pod scheduling error:
+```text
+0/1 nodes are available: 1 Insufficient cpu. no new claims to deallocate
+```
 
-### Troubleshooting Playbook
+### Cause:
+The Kubernetes cluster (Minikube with 2 CPUs) cannot accommodate default container resource requests across 6 step containers + `lite-engine` ($400\text{m} \times 6 + 500\text{m} = 2.9\text{ CPUs} > 2.0\text{ CPUs}$).
 
-1. **Acknowledge & Validate Impact**:
-   * Inform the customer immediately: *"I am investigating the pipeline execution state for build #X right now."*
+### Solution:
+Explicitly define lightweight CPU resource limits on every step in `harness-pipeline.yaml`:
+```yaml
+resources:
+  limits:
+    cpu: "100m"
+    memory: "256Mi"
+```
 
-2. **Inspect Pipeline State**:
-   * Open Harness UI -> **Pipelines** -> **Execution History**.
-   * Locate the blocked execution step (**Executive Approval Gate**).
-   * Verify if the approval notification reached the designated user group (`account._account_all_users`).
+---
 
-3. **Diagnose Permission / Policy Block**:
-   * Check if `disallowPipelineExecutor: true` is active. If the user attempting to approve is the same user who initiated the execution, Harness intentionally blocks the action to preserve compliance.
-   * Have an authorized secondary approver execute the sign-off inside Harness UI.
+## 2. Issue: `Connector not found for identifier : [k8s_delegate] with scope: [ACCOUNT]`
 
-4. **Post-Incident Action Item**:
-   * Configure Slack/Teams webhook notifications for Approval step entry to eliminate approval latency in future releases.
+### Symptom:
+Pipeline initialization fails with scope resolution error:
+```text
+Connector not found for identifier : [k8s_delegate] with scope: [ACCOUNT]
+```
+
+### Cause:
+Prefixing a connector ID with `account.` instructs Harness to resolve the connector at Account level. Connectors created under **Project Settings ➔ Connectors** must be referenced without `account.`.
+
+### Solution:
+Update `connectorRef` to `k8s_delegate` (Project scope).
+
+---
+
+## 3. Issue: `Following delegate(s) failed to complete validation check : [[]]`
+
+### Symptom:
+Harness CI fails during initialization before any step runs.
+
+### Cause:
+1. Referenced connector did not exist in Harness Connectors.
+2. Delegate lacked required CI runner capability checks.
+
+### Solution:
+Deploy standard single-container Harness Kubernetes Delegate (`harness-k8s-delegate.yaml`) into `harness-delegate-ng` namespace and link via `k8s_delegate` connector.
+
+---
+
+## 4. Cleaning Up Ephemeral Step Pods
+
+To clear completed or stuck runner pods from Minikube:
+
+```bash
+kubectl delete pods -n harness-delegate-ng --field-selector=status.phase!=Running
+```
