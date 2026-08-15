@@ -23,11 +23,8 @@ pipeline:
           infrastructure:
             type: KubernetesDirect
             spec:
-              connectorRef: <+input>
+              connectorRef: account.k8s_delegate
               namespace: harness-delegate-ng
-              platform:
-                os: Linux
-                arch: Amd64
           execution:
             steps:
               - step:
