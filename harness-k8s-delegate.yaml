@@ -90,26 +90,3 @@ spec:
           value: "k8s-delegate,linux-amd64"
         - name: NEXT_GEN
           value: "true"
-        - name: RUNNER_URL
-          value: "http://127.0.0.1:3000"
-      - image: us-docker.pkg.dev/gar-prod-setup/harness-public/harness/ci-lite-engine:latest
-        name: ci-lite-engine
-        ports:
-          - containerPort: 3000
-        envFrom:
-          - secretRef:
-              name: k8s-delegate-account-token
-        env:
-          - name: HARNESS_ACCOUNT_ID
-            value: "1G9ZhWoTSCOo9I9qLmV9VA"
-          - name: ACCOUNT_ID
-            value: "1G9ZhWoTSCOo9I9qLmV9VA"
-          - name: HARNESS_LOG_PREFIX
-            value: "http://127.0.0.1:3000"
-          - name: PORT
-            value: "3000"
-          - name: HARNESS_LOG_SERVICE_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: k8s-delegate-account-token
-                key: DELEGATE_TOKEN
