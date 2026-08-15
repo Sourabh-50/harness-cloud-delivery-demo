@@ -25,6 +25,7 @@ pipeline:
             spec:
               type: Pool
               spec:
+                poolName: docker-delegate
                 connectorRef: account.docker_delegate
           execution:
             steps:
