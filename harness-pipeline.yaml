@@ -21,10 +21,11 @@ pipeline:
         spec:
           cloneCodebase: true
           infrastructure:
-            type: KubernetesDirect
+            type: VM
             spec:
-              connectorRef: account.k8s_delegate
-              namespace: harness-delegate-ng
+              type: Pool
+              spec:
+                poolName: default
           execution:
             steps:
               - step:
